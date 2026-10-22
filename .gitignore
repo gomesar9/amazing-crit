@@ -1,0 +1,5 @@
+# Reference material, kept locally only
+docs/references/
+
+# Local deploy script (machine-specific paths)
+deploy.sh

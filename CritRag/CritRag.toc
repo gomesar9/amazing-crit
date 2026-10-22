@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: CritRag
+## Notes: Plays a sound when you land a critical strike, based on the weapon used.
+## Notes-ptBR: Toca um som quando você acerta um crítico, conforme a arma usada.
+## Author: gomes
+## Version: 0.5.1
+## SavedVariables: CritRagDB
+
+Locales\enUS.lua
+Locales\ptBR.lua
+Config.lua
+Options.lua
+Core.lua

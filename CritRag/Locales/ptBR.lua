@@ -1,0 +1,46 @@
+local _, ns = ...
+
+if GetLocale() ~= "ptBR" then
+	return
+end
+
+local L = ns.L
+
+L.STATUS = "ativo: %s | canal: %s | dano mínimo: %d | som da arma atual: %s"
+L.ON = "ligado"
+L.OFF = "desligado"
+L.ENABLED_MSG = "ligado."
+L.DISABLED_MSG = "desligado."
+L.CHANNEL_SET = "canal de áudio definido para %s."
+L.MIN_DAMAGE_SET = "dano mínimo do crítico definido para %d (0 = qualquer crítico)."
+L.UNKNOWN_CATEGORY = "som \"%s\" desconhecido. Opções: %s."
+L.PLAY_FAILED = "não foi possível tocar o som (canal mudo ou arquivo ausente?)."
+L.USAGE = "uso: /critrag [status | on | off | test <arma>|generic | min <dano> | channel master|sfx] (sem argumento abre as opções)"
+L.OPT_ENABLED = "Ativado"
+L.OPT_ENABLED_TT = "Toca um som quando seu alvo recebe um crítico enquanto você está em ataque automático."
+L.OPT_CHANNEL = "Canal de áudio"
+L.OPT_CHANNEL_TT = "Canal de som usado; o volume dele controla o volume do som de crítico."
+L.OPT_CHANNEL_MASTER = "Principal"
+L.OPT_CHANNEL_SFX = "Efeitos"
+L.OPT_MIN_DAMAGE = "Dano mínimo"
+L.OPT_MIN_DAMAGE_TT = "Críticos abaixo deste valor são ignorados (0 = qualquer crítico). Ajuda a filtrar críticos de pets e de outros jogadores. Use /critrag min <dano> para valores exatos."
+L.OPT_THROTTLE = "Intervalo mínimo"
+L.OPT_THROTTLE_TT = "Tempo mínimo entre dois sons de crítico."
+L.OPT_WEAPONS = "Armas"
+L.OPT_WEAPON_TT = "Toca som de crítico para este tipo de arma. Armas sem som próprio usam o genérico."
+L.OPT_SOUNDS = "Sons"
+L.OPT_TEST = "Testar"
+L.OPT_TEST_TT = "Toca este som agora."
+L.SOUND_GENERIC = "Genérico (demais armas)"
+L.WEAPON_SWORD = "Espada"
+L.WEAPON_AXE = "Machado"
+L.WEAPON_MACE = "Maça"
+L.WEAPON_DAGGER = "Adaga"
+L.WEAPON_FIST = "Arma de punho"
+L.WEAPON_POLEARM = "Arma de haste"
+L.WEAPON_STAFF = "Cajado"
+L.WEAPON_BOW = "Arco"
+L.WEAPON_GUN = "Arma de fogo"
+L.WEAPON_CROSSBOW = "Besta"
+L.WEAPON_WAND = "Varinha"
+L.WEAPON_THROWN = "Arremesso"
