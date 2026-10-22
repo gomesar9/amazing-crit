@@ -32,4 +32,5 @@ read_globals = {
 	"strtrim",
 	"UnitCanAttack",
 	"UnitClassBase",
+	"UnitIsUnit",
 }

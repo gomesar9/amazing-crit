@@ -3,7 +3,7 @@
 ## Notes: Plays a sound when you land a critical strike, based on the weapon used.
 ## Notes-ptBR: Toca um som quando você acerta um crítico, conforme a arma usada.
 ## Author: gomes
-## Version: 0.5.1
+## Version: 0.6.0
 ## SavedVariables: CritRagDB
 
 Locales\enUS.lua

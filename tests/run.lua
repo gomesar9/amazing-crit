@@ -120,6 +120,10 @@ local function NewSettingsStub()
 	local function AddControl(kind)
 		return function(category, setting, options, tooltip)
 			local initializer = { kind = kind, setting = setting, options = options, tooltip = tooltip }
+			function initializer:SetParentInitializer(parent, predicate)
+				assert(parent and parent ~= self, "invalid parent initializer")
+				self.parent, self.predicate = parent, predicate
+			end
 			table.insert(category.initializers, initializer)
 			return initializer
 		end
@@ -174,9 +178,10 @@ local function ResetEnvironment(opts)
 		locale = opts.locale or "enUS",
 		class = opts.class or "WARRIOR",
 		forms = opts.forms or {}, -- list of booleans: isActive per shapeshift form
+		targetIs = nil, -- "player" | "pet" | nil: what UnitIsUnit("target", x) matches
 	}
 
-	_G.CritRagDB = opts.savedVariables
+	_G.CritRagDB = opts.savedVariables or (opts.mode and { version = 4, mode = opts.mode })
 	_G.SlashCmdList = {}
 	_G.SLASH_CRITRAG1 = nil
 
@@ -188,6 +193,11 @@ local function ResetEnvironment(opts)
 			Sword1H = 7, Sword2H = 8, Warglaive = 9, Staff = 10, Bearclaw = 11, Catclaw = 12,
 			Unarmed = 13, Generic = 14, Dagger = 15, Thrown = 16, Obsolete3 = 17, Crossbow = 18,
 			Wand = 19, Fishingpole = 20,
+		},
+		-- Values from Blizzard_APIDocumentationGenerated/DamageConstantsDocumentation.lua (forever).
+		Damageclass = {
+			MaskPhysical = 1, MaskHoly = 2, MaskFire = 4, MaskNature = 8,
+			MaskFrost = 16, MaskShadow = 32, MaskArcane = 64,
 		},
 	}
 	_G.INVSLOT_MAINHAND, _G.INVSLOT_OFFHAND, _G.INVSLOT_RANGED = 16, 17, 18
@@ -217,6 +227,12 @@ local function ResetEnvironment(opts)
 		return true, #state.played
 	end
 	_G.UnitCanAttack = function() return state.canAttack end
+	_G.UnitIsUnit = function(a, b)
+		if rawequal(state.targetIs, SECRET) then
+			return SECRET
+		end
+		return a == "target" and state.targetIs == b
+	end
 	_G.UnitClassBase = function() return state.class:lower(), state.class, 1 end
 	_G.GetNumShapeshiftForms = function() return #state.forms end
 	_G.GetShapeshiftFormInfo = function(i) return 136116, state.forms[i], true, 768 end
@@ -339,7 +355,7 @@ local function FindInitializer(ns, predicate)
 end
 
 test("melee crit with sword plays sword sound", function()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	eq(#state.played, 1, "sounds played")
@@ -348,21 +364,21 @@ test("melee crit with sword plays sword sound", function()
 end)
 
 test("two-handed sword counts as sword", function()
-	LoadAddon({ equipped = { [16] = SWORD2H } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD2H } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	eq(lastSound(), "sword.ogg", "sound")
 end)
 
 test("off-hand weapon used when main-hand is not classified", function()
-	LoadAddon({ equipped = { [16] = FISHING_POLE, [17] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = FISHING_POLE, [17] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	eq(lastSound(), "sword.ogg", "sound")
 end)
 
 test("auto shot crit with bow plays bow sound", function()
-	LoadAddon({ equipped = { [16] = SWORD, [18] = BOW } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD, [18] = BOW } })
 	FireEvent("START_AUTOREPEAT_SPELL")
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
@@ -373,18 +389,18 @@ test("auto shot crit with bow plays bow sound", function()
 end)
 
 test("unsupported weapons and idle state play nothing", function()
-	LoadAddon({ equipped = { [16] = FISHING_POLE } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = FISHING_POLE } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	FireEvent("START_AUTOREPEAT_SPELL")
 	Crit()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	Crit() -- no auto-attack active
 	eq(#state.played, 0, "sounds played")
 end)
 
 test("non-crit, non-wound and friendly targets are ignored", function()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	FireEvent("UNIT_COMBAT", "target", "WOUND", "", 500, 1)
 	FireEvent("UNIT_COMBAT", "target", "HEAL", "CRITICAL", 500, 2)
@@ -395,7 +411,7 @@ test("non-crit, non-wound and friendly targets are ignored", function()
 end)
 
 test("secret values never raise errors", function()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	FireEvent("UNIT_COMBAT", "target", SECRET, "CRITICAL", 500, 1)
 	eq(state.secretChecks, 1, "secret action checked")
@@ -414,7 +430,7 @@ test("secret values never raise errors", function()
 end)
 
 test("minimum damage filters small crits", function()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Slash("min 300")
 	eq(_G.CritRagDB.minDamage, 300, "minDamage")
@@ -464,7 +480,7 @@ test("minimum damage slider uses non-linear steps", function()
 end)
 
 test("throttle drops crits that are too close", function()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	FireEvent("UNIT_COMBAT", "target", "WOUND", "CRITICAL", 500, 1)
 	state.time = state.time + 0.1
@@ -476,7 +492,7 @@ test("throttle drops crits that are too close", function()
 end)
 
 test("equipment change updates the weapon cache", function()
-	LoadAddon({ equipped = { [16] = FISHING_POLE } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = FISHING_POLE } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	eq(#state.played, 0, "fishing pole")
@@ -494,23 +510,23 @@ test("options panel registers every control", function()
 	for _, initializer in ipairs(ns.optionsCategory.initializers) do
 		counts[initializer.kind] = (counts[initializer.kind] or 0) + 1
 	end
-	eq(counts.checkbox, 1 + #ns.WEAPON_CATEGORIES, "checkboxes (enabled + weapons)")
-	eq(counts.dropdown, 1, "dropdowns")
+	eq(counts.checkbox, 1 + #ns.SOURCE_CATEGORIES + #ns.WEAPON_CATEGORIES, "checkboxes (enabled + sources + weapons)")
+	eq(counts.dropdown, 2, "dropdowns (mode, channel)")
 	eq(counts.slider, 2, "sliders")
-	eq(counts.header, 2, "headers")
+	eq(counts.header, 3, "headers")
 	eq(counts.button, 3, "test buttons (bow, sword, generic)")
 	for _, initializer in ipairs(ns.optionsCategory.initializers) do
 		local label = initializer.setting and initializer.setting.name or initializer.name
 		assert(label, "control without label: " .. tostring(initializer.kind))
 	end
-	local dropdown = FindInitializer(ns, function(i) return i.kind == "dropdown" end)
+	local dropdown = FindInitializer(ns, function(i) return i.kind == "dropdown" and i.setting.variable == "CritRag_channel" end)
 	local channels = dropdown.options()
 	eq(#channels, 2, "channel options")
 	eq(channels[1].value, "Master", "first channel")
 end)
 
 test("unchecking a weapon silences it, test button still plays", function()
-	local ns = LoadAddon({ equipped = { [16] = SWORD } })
+	local ns = LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	_G.Settings.settings.CritRag_weapon_sword:SetValue(false)
 	Crit()
@@ -521,7 +537,7 @@ test("unchecking a weapon silences it, test button still plays", function()
 end)
 
 test("enabled checkbox toggles UNIT_COMBAT registration", function()
-	LoadAddon({ equipped = { [16] = SWORD } })
+	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	_G.Settings.settings.CritRag_enabled:SetValue(false)
 	Crit()
@@ -553,10 +569,12 @@ test("slash commands", function()
 	assert(state.printed[#state.printed - 1]:find("SFX", 1, true), "status shows channel")
 end)
 
-test("v1 SavedVariables migrate to v2 keeping user values", function()
+test("v1 SavedVariables migrate keeping user values", function()
 	LoadAddon({ savedVariables = { version = 1, enabled = false, channel = "SFX", minDamage = 250 } })
 	local db = _G.CritRagDB
-	eq(db.version, 3, "version")
+	eq(db.version, 4, "version")
+	eq(db.mode, "weapon", "existing users keep weapon mode")
+	eq(db.sources.fire, true, "sources added")
 	eq(db.enabled, false, "enabled kept")
 	eq(db.channel, "SFX", "channel kept")
 	eq(db.minDamage, 250, "minDamage kept")
@@ -569,7 +587,8 @@ end)
 test("v2 SavedVariables keep per-weapon choices", function()
 	LoadAddon({ savedVariables = { version = 2, categories = { bow = false, sword = true } } })
 	local db = _G.CritRagDB
-	eq(db.version, 3, "version")
+	eq(db.version, 4, "version")
+	eq(db.mode, "weapon", "existing users keep weapon mode")
 	eq(db.categories.bow, false, "bow choice kept")
 	eq(db.categories.thrown, true, "thrown added")
 end)
@@ -581,7 +600,7 @@ test("weapons without their own sound use the generic sound", function()
 		{ GUN, 18, "START_AUTOREPEAT_SPELL" },
 	}
 	for _, case in ipairs(cases) do
-		LoadAddon({ equipped = { [case[2]] = case[1] } })
+		LoadAddon({ mode = "weapon", equipped = { [case[2]] = case[1] } })
 		FireEvent(case[3])
 		Crit()
 		eq(lastSound(), "generic.ogg", "subclass " .. case[1].subClassID)
@@ -607,7 +626,7 @@ test("every weapon subclass we classify has a category and locale label", functi
 		assert(known[category], "unknown category " .. category)
 		local slot = (category == "bow" or category == "gun" or category == "crossbow"
 			or category == "wand" or category == "thrown") and 18 or 16
-		LoadAddon({ equipped = { [slot] = { id = 2000 + subClassID, classID = 2, subClassID = subClassID } } })
+		LoadAddon({ mode = "weapon", equipped = { [slot] = { id = 2000 + subClassID, classID = 2, subClassID = subClassID } } })
 		FireEvent(slot == 18 and "START_AUTOREPEAT_SPELL" or "PLAYER_ENTER_COMBAT")
 		_G.Settings.settings["CritRag_weapon_" .. category]:SetValue(false)
 		Crit()
@@ -619,7 +638,7 @@ test("every weapon subclass we classify has a category and locale label", functi
 end)
 
 test("druid in a shapeshift form is ignored", function()
-	LoadAddon({ class = "DRUID", equipped = { [16] = STAFF }, forms = { false, false } })
+	LoadAddon({ mode = "weapon", class = "DRUID", equipped = { [16] = STAFF }, forms = { false, false } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	eq(#state.played, 1, "caster form plays")
@@ -634,14 +653,14 @@ test("druid in a shapeshift form is ignored", function()
 end)
 
 test("druid already shapeshifted at login is ignored", function()
-	LoadAddon({ class = "DRUID", equipped = { [16] = STAFF }, forms = { false, true } })
+	LoadAddon({ mode = "weapon", class = "DRUID", equipped = { [16] = STAFF }, forms = { false, true } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Crit()
 	eq(#state.played, 0, "form active at login")
 end)
 
 test("non-druid with an active stance still plays", function()
-	LoadAddon({ class = "WARRIOR", equipped = { [16] = SWORD }, forms = { true } })
+	LoadAddon({ mode = "weapon", class = "WARRIOR", equipped = { [16] = SWORD }, forms = { true } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	FireEvent("UPDATE_SHAPESHIFT_FORM")
 	Crit()
@@ -663,6 +682,188 @@ test("ptBR locale has every enUS key", function()
 			error("ptBR missing translation for " .. k)
 		end
 	end
+end)
+
+---------------------------------------------------------------------------
+-- "source" mode
+---------------------------------------------------------------------------
+
+-- Gives every source its own fake file so the played key can be asserted.
+local function LoadSourceMode(opts)
+	local ns = LoadAddon(opts)
+	for _, key in ipairs(ns.SOURCE_CATEGORIES) do
+		_G.CritRagDB.sounds[key] = key .. ".ogg"
+	end
+	return ns
+end
+
+local function Combat(unit, action, flag, amount, school)
+	state.time = state.time + 1
+	FireEvent("UNIT_COMBAT", unit, action, flag, amount or 500, school or 1)
+end
+
+test("new installs start in source mode", function()
+	LoadAddon()
+	eq(_G.CritRagDB.mode, "source", "mode")
+	eq(_G.CritRagDB.version, 4, "version")
+end)
+
+test("crit damage on target is classified by school", function()
+	LoadSourceMode()
+	local cases = {
+		{ 1, "physical" }, { 2, "holy" }, { 4, "fire" }, { 8, "nature" },
+		{ 16, "frost" }, { 32, "shadow" }, { 64, "arcane" },
+		{ 4 + 16, "fire" }, -- combined mask: first magic school in order
+		{ 1 + 32, "shadow" }, -- physical + magic counts as the magic school
+	}
+	for _, case in ipairs(cases) do
+		Combat("target", "WOUND", "CRITICAL", 500, case[1])
+		eq(lastSound(), case[2] .. ".ogg", "mask " .. case[1])
+	end
+	local before = #state.played
+	Combat("target", "WOUND", "CRITICAL", 500, 0)
+	eq(#state.played, before, "mask 0 plays nothing")
+end)
+
+test("source mode needs no auto-attack or weapon", function()
+	LoadSourceMode()
+	Combat("target", "WOUND", "CRITICAL", 500, 4)
+	eq(lastSound(), "fire.ogg", "spell crit without auto-attack")
+end)
+
+test("crit heals on player, pet and target", function()
+	LoadSourceMode()
+	Combat("player", "HEAL", "CRITICAL")
+	eq(lastSound(), "heal_player.ogg", "player")
+	Combat("pet", "HEAL", "CRITICAL")
+	eq(lastSound(), "heal_pet.ogg", "pet")
+	state.canAttack = false
+	Combat("target", "HEAL", "CRITICAL")
+	eq(lastSound(), "heal_target.ogg", "friendly target")
+	local before = #state.played
+	Combat("party1", "HEAL", "CRITICAL")
+	Combat("raid5", "HEAL", "CRITICAL")
+	Combat("player", "HEAL", "")
+	eq(#state.played, before, "other units and non-crit heals ignored")
+end)
+
+test("heals on a hostile target and self-target duplicates are ignored", function()
+	LoadSourceMode()
+	Combat("target", "HEAL", "CRITICAL")
+	eq(#state.played, 0, "hostile target heal")
+	state.canAttack = false
+	state.targetIs = "player"
+	Combat("target", "HEAL", "CRITICAL")
+	eq(#state.played, 0, "target is you: handled by heal_player")
+	state.targetIs = "pet"
+	Combat("target", "HEAL", "CRITICAL")
+	eq(#state.played, 0, "target is your pet: handled by heal_pet")
+end)
+
+test("damage on a friendly target is ignored", function()
+	LoadSourceMode()
+	state.canAttack = false
+	Combat("target", "WOUND", "CRITICAL", 500, 1)
+	eq(#state.played, 0, "friendly target")
+end)
+
+test("crits and crushing blows taken", function()
+	LoadSourceMode()
+	Combat("player", "WOUND", "CRITICAL")
+	eq(lastSound(), "taken_crit.ogg", "crit taken")
+	Combat("player", "WOUND", "CRUSHING")
+	eq(lastSound(), "taken_crushing.ogg", "crushing taken")
+	local before = #state.played
+	Combat("player", "WOUND", "GLANCING")
+	Combat("player", "WOUND", "")
+	Combat("pet", "WOUND", "CRITICAL")
+	Combat("target", "WOUND", "CRUSHING")
+	eq(#state.played, before, "glancing, normal hits, pet damage and crushing on target ignored")
+end)
+
+test("source toggles and minimum amount apply", function()
+	LoadSourceMode()
+	_G.Settings.settings.CritRag_source_fire:SetValue(false)
+	Combat("target", "WOUND", "CRITICAL", 500, 4)
+	eq(#state.played, 0, "fire disabled")
+	Combat("target", "WOUND", "CRITICAL", 500, 16)
+	eq(lastSound(), "frost.ogg", "frost still on")
+	Slash("min 1000")
+	Combat("player", "HEAL", "CRITICAL", 999)
+	eq(lastSound(), "frost.ogg", "heal below minimum")
+	Combat("player", "HEAL", "CRITICAL", 1000)
+	eq(lastSound(), "heal_player.ogg", "heal at minimum")
+end)
+
+test("weapon toggles do not affect source mode and vice versa", function()
+	LoadSourceMode({ equipped = { [16] = SWORD } })
+	FireEvent("PLAYER_ENTER_COMBAT")
+	_G.Settings.settings.CritRag_weapon_sword:SetValue(false)
+	Combat("target", "WOUND", "CRITICAL", 500, 1)
+	eq(lastSound(), "physical.ogg", "source mode ignores weapon toggle")
+	_G.Settings.settings.CritRag_weapon_sword:SetValue(true)
+	_G.Settings.settings.CritRag_source_physical:SetValue(false)
+	_G.Settings.settings.CritRag_mode:SetValue("weapon")
+	Combat("target", "WOUND", "CRITICAL", 500, 1)
+	eq(lastSound(), "sword.ogg", "weapon mode ignores source toggle")
+end)
+
+test("switching mode changes UNIT_COMBAT registration", function()
+	LoadSourceMode()
+	Combat("player", "HEAL", "CRITICAL")
+	eq(#state.played, 1, "source mode hears player")
+	_G.Settings.settings.CritRag_mode:SetValue("weapon")
+	Combat("player", "HEAL", "CRITICAL")
+	Combat("player", "WOUND", "CRITICAL")
+	eq(#state.played, 1, "weapon mode only listens to target")
+	Slash("mode source")
+	eq(_G.CritRagDB.mode, "source", "slash mode")
+	Combat("player", "HEAL", "CRITICAL")
+	eq(#state.played, 2, "back to source mode")
+	Slash("off")
+	Combat("player", "HEAL", "CRITICAL")
+	eq(#state.played, 2, "disabled")
+end)
+
+test("secret school mask or unit comparison never raise errors", function()
+	LoadSourceMode()
+	FireEvent("UNIT_COMBAT", "target", "WOUND", "CRITICAL", 500, SECRET)
+	eq(state.secretChecks, 1, "secret school checked")
+	eq(#state.played, 0, "secret school skipped")
+	state.canAttack = false
+	state.targetIs = SECRET
+	Combat("target", "HEAL", "CRITICAL")
+	eq(lastSound(), "heal_target.ogg", "secret UnitIsUnit treated as unknown")
+	FireEvent("UNIT_COMBAT", SECRET, "HEAL", "CRITICAL", 500, 2)
+	eq(#state.played, 1, "secret unit skipped")
+end)
+
+test("source and weapon checkboxes are enabled only in their mode", function()
+	local ns = LoadAddon()
+	local mode = FindInitializer(ns, function(i) return i.kind == "dropdown" and i.setting.variable == "CritRag_mode" end)
+	local values = {}
+	for _, option in ipairs(mode.options()) do values[#values + 1] = option.value end
+	eq(table.concat(values, ","), "source,weapon", "mode options")
+	local fire = FindInitializer(ns, function(i) return i.setting and i.setting.variable == "CritRag_source_fire" end)
+	local sword = FindInitializer(ns, function(i) return i.setting and i.setting.variable == "CritRag_weapon_sword" end)
+	eq(fire.parent, mode, "source parent")
+	eq(sword.parent, mode, "weapon parent")
+	eq(fire.predicate(), true, "source enabled in source mode")
+	eq(sword.predicate(), false, "weapon disabled in source mode")
+	mode.setting:SetValue("weapon")
+	eq(fire.predicate(), false, "source disabled in weapon mode")
+	eq(sword.predicate(), true, "weapon enabled in weapon mode")
+	for _, key in ipairs(ns.SOURCE_CATEGORIES) do
+		assert(ns.L["SOURCE_" .. key:upper()], "missing label for " .. key)
+	end
+end)
+
+test("slash test accepts source keys", function()
+	LoadSourceMode()
+	Slash("test taken_crushing")
+	eq(lastSound(), "taken_crushing.ogg", "source key")
+	Slash("status")
+	assert(state.printed[#state.printed - 1]:find("By source", 1, true), "status shows mode")
 end)
 
 for _, t in ipairs(tests) do

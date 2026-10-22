@@ -2,7 +2,8 @@ local ADDON_NAME, ns = ...
 local L = ns.L
 
 -- Settings API checked against Blizzard UI source, branch "forever" (1.60.1 build 70450):
--- Interface/AddOns/Blizzard_Settings_Shared/Blizzard_Settings.lua.
+-- Interface/AddOns/Blizzard_Settings_Shared/Blizzard_Settings.lua and
+-- Blizzard_SettingControls.lua (SetParentInitializer).
 
 local CHANNEL_OPTIONS = {
 	{ value = "Master", label = "OPT_CHANNEL_MASTER" },
@@ -13,6 +14,15 @@ local function GetChannelOptions()
 	local container = Settings.CreateControlTextContainer()
 	for _, option in ipairs(CHANNEL_OPTIONS) do
 		container:Add(option.value, L[option.label])
+	end
+	return container:GetData()
+end
+
+local function GetModeOptions()
+	local container = Settings.CreateControlTextContainer()
+	for _, mode in ipairs(ns.MODES) do
+		local key = mode:upper()
+		container:Add(mode, L["MODE_" .. key], L["MODE_" .. key .. "_TT"])
 	end
 	return container:GetData()
 end
@@ -52,13 +62,20 @@ local function AddSetting(category, key, tbl, varType, label)
 	return Settings.RegisterAddOnSetting(category, ADDON_NAME .. "_" .. key, key, tbl, varType, label, ns.defaults[key])
 end
 
-local function AddWeapon(category, weapon)
-	local setting = Settings.RegisterAddOnSetting(category, ADDON_NAME .. "_weapon_" .. weapon, weapon,
-		ns.db.categories, Settings.VarType.Boolean, L["WEAPON_" .. weapon:upper()], ns.defaults.categories[weapon])
-	Settings.CreateCheckbox(category, setting, L.OPT_WEAPON_TT)
+-- One checkbox per key of a toggles table; enabled only while its mode is active.
+local function AddToggles(category, keys, toggles, defaults, prefix, labelPrefix, tooltip, modeInitializer, mode)
+	local function IsModeActive()
+		return ns.db.mode == mode
+	end
+	for _, key in ipairs(keys) do
+		local setting = Settings.RegisterAddOnSetting(category, ADDON_NAME .. "_" .. prefix .. "_" .. key, key,
+			toggles, Settings.VarType.Boolean, L[labelPrefix .. key:upper()], defaults[key])
+		local initializer = Settings.CreateCheckbox(category, setting, tooltip)
+		initializer:SetParentInitializer(modeInitializer, IsModeActive)
+	end
 end
 
--- One test button per sound file; "generic" covers weapons without their own sound.
+-- One test button per sound file; "generic" covers keys without their own sound.
 local function AddSoundTest(layout, soundKey, label)
 	layout:AddInitializer(CreateSettingsButtonInitializer(label, L.OPT_TEST, function()
 		if not ns.PlayCrit(soundKey, true) then
@@ -74,6 +91,12 @@ function ns.InitOptions()
 	local enabled = AddSetting(category, "enabled", db, Settings.VarType.Boolean, L.OPT_ENABLED)
 	Settings.CreateCheckbox(category, enabled, L.OPT_ENABLED_TT)
 	enabled:SetValueChangedCallback(function()
+		ns.UpdateEnabled()
+	end)
+
+	local mode = AddSetting(category, "mode", db, Settings.VarType.String, L.OPT_MODE)
+	local modeInitializer = Settings.CreateDropdown(category, mode, GetModeOptions, L.OPT_MODE_TT)
+	mode:SetValueChangedCallback(function()
 		ns.UpdateEnabled()
 	end)
 
@@ -93,10 +116,13 @@ function ns.InitOptions()
 	throttleOptions:SetLabelFormatter(MinimalSliderWithSteppersMixin.Label.Right, FormatSeconds)
 	Settings.CreateSlider(category, throttle, throttleOptions, L.OPT_THROTTLE_TT)
 
+	layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(L.OPT_SOURCES))
+	AddToggles(category, ns.SOURCE_CATEGORIES, db.sources, ns.defaults.sources, "source", "SOURCE_",
+		L.OPT_SOURCE_TT, modeInitializer, "source")
+
 	layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(L.OPT_WEAPONS))
-	for _, weapon in ipairs(ns.WEAPON_CATEGORIES) do
-		AddWeapon(category, weapon)
-	end
+	AddToggles(category, ns.WEAPON_CATEGORIES, db.categories, ns.defaults.categories, "weapon", "WEAPON_",
+		L.OPT_WEAPON_TT, modeInitializer, "weapon")
 
 	layout:AddInitializer(CreateSettingsListSectionHeaderInitializer(L.OPT_SOUNDS))
 	AddSoundTest(layout, "bow", L.WEAPON_BOW)

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.0 — 2026-10-22
+
+- **Dois modos**, trocados no painel ou com `/critrag mode source|weapon`:
+  - **Por fonte (preciso)**, padrão em instalações novas: usa só o que o `UNIT_COMBAT` informa com certeza. Dano crítico no alvo hostil por escola (físico, sagrado, fogo, natureza, gelo, sombra, arcano); cura crítica em você, no seu pet e no seu alvo amigável; crítico e golpe esmagador recebidos. Não depende de ataque automático nem de arma.
+  - **Por arma (solo)**: o comportamento anterior. Quem já usava o addon continua neste modo após a migração.
+- Liga/desliga por fonte; checkboxes de fontes e de armas só ficam ativos no modo correspondente.
+- "Dano mínimo" virou "Valor mínimo" e vale também para curas.
+- Cura no alvo é ignorada quando o alvo é você ou seu pet (já coberto por "Cura em você"/"Cura no seu pet").
+- SavedVariables v4 (`mode`, `sources`).
+- Não testado em jogo.
+
+### APIs novas
+
+- `UNIT_COMBAT` registrado para todas as unidades no modo por fonte (filtra `player`, `pet`, `target`); uso do 5º argumento `schoolMask` com `Enum.Damageclass.Mask*`; `UnitIsUnit` (pode ser secret em mapas restritos). `SettingsElementHierarchyMixin:SetParentInitializer` para habilitar controles por modo. Conferidos no código da UI, branch `forever`.
+
 ## 0.5.1 — 2026-10-22
 
 - Slider de dano mínimo com passos variáveis: 0–50 de 5 em 5, até 100 de 10 em 10, até 1000 de 50 em 50, até 5000 de 100 em 100 (74 posições).

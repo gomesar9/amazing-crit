@@ -2,9 +2,9 @@
 
 ## O que este addon faz
 
-**CritRag** (pasta `CritRag/`, comando `/critrag`, SavedVariables `CritRagDB`) toca um som (`.ogg`) quando o jogador acerta um golpe crítico. O som varia conforme a arma. Escopo atual: todas as armas (lista em `ns.WEAPON_CATEGORIES`, `Config.lua`); som próprio para **arco** (`Sounds/bow.ogg`) e **espada** (`Sounds/sword.ogg`), demais usam `Sounds/generic.ogg`. Nome antigo "CritSound" foi abandonado (conflita com o addon CritSound de Nexio, GPLv3, em `docs/references/CritSound/` (local, fora do git) só como referência — não copiar código nem sons).
+**CritRag** (pasta `CritRag/`, comando `/critrag`, SavedVariables `CritRagDB`) toca um som (`.ogg`) quando o jogador acerta um golpe crítico. O som varia conforme a arma. Dois modos (`ns.MODES`, `Config.lua`): **source** (preciso, padrão) — som por fonte certa (`ns.SOURCE_CATEGORIES`: escola do dano crítico no alvo, cura crítica em player/pet/alvo, crítico/esmagador recebido); **weapon** (heurístico, para jogar solo) — som por arma (`ns.WEAPON_CATEGORIES`). Som próprio só para **arco** e **espada**; o resto usa `Sounds/generic.ogg` até o usuário entregar os sons (um por escola/fonte). Nome antigo "CritSound" foi abandonado (conflita com o addon CritSound de Nexio, GPLv3, em `docs/references/CritSound/` (local, fora do git) só como referência — não copiar código nem sons).
 
-### Estado atual (v0.5.0, 2026-10-22)
+### Estado atual (v0.6.0, 2026-10-22)
 
 - Servidor do Forever voltou em 2026-10-22; v0.4.0 (arco, espada, painel) testada em jogo e OK pelo usuário. Comportamento ainda não confirmado em jogo fica marcado `-- TODO: verificar no Forever`.
 - Sons: originais em `assets/sounds/` (.mp3), convertidos com ffmpeg para `CritRag/Sounds/*.ogg` (comando no `README.md` raiz).
@@ -17,13 +17,16 @@
 ### Abordagem técnica (confirmada no beta 1.60.1)
 
 1. **`COMBAT_LOG_EVENT_UNFILTERED` está BLOQUEADO para addons no Forever** (confirmado em jogo; igual ao Midnight 12.0.0, onde registrar o evento dispara `ADDON_ACTION_FORBIDDEN`). Não usar CLEU.
-2. **Detecção: `UNIT_COMBAT` registrado com `RegisterUnitEvent(..., "target")`** — payload `unitTarget, action, flagText, amount, schoolMask`. Confirmado em jogo: chega `WOUND CRITICAL` legível fora de raid. Crítico = `action == "WOUND"` e `flagText == "CRITICAL"`, alvo hostil (`UnitCanAttack`). Checar `issecretvalue()` antes de comparar qualquer campo.
-   - Limitação aceita pelo usuário: não informa a fonte — críticos do pet e de outros jogadores no mesmo alvo também tocam. Mitigação: dano mínimo (`/critrag min <dano>`, campo `amount`).
-3. **Arma inferida pelo estado de ataque automático**: `START_AUTOREPEAT_SPELL`/`STOP_AUTOREPEAT_SPELL` (Auto Shot → slot ranged) e `PLAYER_ENTER_COMBAT`/`PLAYER_LEAVE_COMBAT` (auto-attack corpo a corpo → main-hand, senão off-hand). Sem ataque automático ativo → não toca. Confirmado em jogo para Auto Shot e corpo a corpo; varinha/arremesso ainda não.
+2. **Detecção: `UNIT_COMBAT`** — payload `unitTarget, action, flagText, amount, schoolMask` (sem flags de secret na doc do Forever). Confirmado em jogo: chega `WOUND CRITICAL` legível fora de raid. `action`: `WOUND`/`HEAL`/`ENERGIZE`/...; `flagText`: `CRITICAL`/`CRUSHING`/`GLANCING`/...; `schoolMask` = bits de `Enum.Damageclass.Mask*`. Checar `issecretvalue()` antes de comparar qualquer campo.
+   - **O que é certo**: unidade que recebeu, tipo (dano/cura), crítico, valor, escola. **O que NÃO é**: quem causou, e ataque comum vs habilidade (ambos "físico"). Decisão do usuário: modo **source** usa só informação certa; modo **weapon** é a heurística, para jogar solo.
+   - Modo source: `RegisterEvent("UNIT_COMBAT")` (todas as unidades; filtra `player`/`pet`/`target`). Modo weapon: `RegisterUnitEvent(..., "target")`.
+   - Cura no alvo ignorada se alvo for você/pet (`UnitIsUnit`, pode ser secret → tratado como "não"). Dano no alvo só se hostil; cura no alvo só se não hostil.
+   - Valor mínimo (`minDamage`, `/critrag min`) vale para dano e cura.
+3. **Modo weapon — arma inferida pelo estado de ataque automático**: `START_AUTOREPEAT_SPELL`/`STOP_AUTOREPEAT_SPELL` (Auto Shot → slot ranged) e `PLAYER_ENTER_COMBAT`/`PLAYER_LEAVE_COMBAT` (auto-attack corpo a corpo → main-hand, senão off-hand). Sem ataque automático ativo → não toca. Confirmado em jogo para Auto Shot e corpo a corpo; varinha/arremesso ainda não.
    - Druida (`UnitClassBase`) em qualquer forma (`GetShapeshiftFormInfo` isActive, atualizado em `UPDATE_SHAPESHIFT_FORM`) → não toca.
    - Categoria por slot via `GetInventoryItemID` + `C_Item.GetItemInfoInstant` (classID 6º, subClassID 7º retorno; não precisa de cache de servidor) + `Enum.ItemWeaponSubclass` (tabela `SUBCLASS_TO_CATEGORY` em `Core.lua`; 1M/2M na mesma categoria; vara de pesca e Warglaive/Generic/Bearclaw/Catclaw fora). Cache atualizado em `PLAYER_EQUIPMENT_CHANGED`.
 4. **Tocar o som**: `PlaySoundFile("Interface\\AddOns\\CritRag\\Sounds\\<arquivo>", canal)` (aceita .ogg e .mp3; canal Master/SFX). Throttle por `GetTime()`. Arquivo de som novo: reiniciar o cliente.
-5. **Opções (SavedVariables, `Config.lua`, versão 3)**: `enabled`, `channel`, `throttle`, `minDamage`, `categories = { <arma> = bool }`, `sounds = { bow, sword, generic }` (arma sem entrada usa `generic`); versionadas por `version` com merge de defaults. Slash: `/critrag` abre o painel; `/critrag [status|on|off|test <arma>|generic|min <n>|channel master|sfx]`.
+5. **Opções (SavedVariables, `Config.lua`, versão 4)**: `enabled`, `mode`, `channel`, `throttle`, `minDamage`, `sources = { <fonte> = bool }`, `categories = { <arma> = bool }`, `sounds = { bow, sword, generic }` (chave sem entrada usa `generic`); migração v3→v4 põe usuários antigos em `mode = "weapon"`; versionadas por `version` com merge de defaults. Slash: `/critrag` abre o painel; `/critrag [status|on|off|mode source|weapon|test <som>|min <n>|channel master|sfx]`.
 
 ## Contexto do projeto
 

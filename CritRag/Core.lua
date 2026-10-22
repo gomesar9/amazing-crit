@@ -2,11 +2,15 @@ local ADDON_NAME, ns = ...
 local L = ns.L
 
 -- COMBAT_LOG_EVENT_UNFILTERED is blocked for addons in Forever (confirmed in-game,
--- 1.60.1). Crits are detected with UNIT_COMBAT on "target", which does not report
--- the source: any crit on your target counts (party members, your pet).
--- The weapon is inferred from the auto-attack state: auto-repeat (Auto Shot) means
--- ranged, melee auto-attack means main-hand/off-hand. Druids in any shapeshift
--- form are ignored (cat/bear attacks do not use the weapon).
+-- 1.60.1). Crits are detected with UNIT_COMBAT, which reports the unit that was
+-- hit or healed, the result (WOUND/HEAL), the crit flag, the amount and the school
+-- mask, but never the source. Two modes (see Config.lua):
+--   "source": sound by what is known for certain: crit damage school on your
+--             target, crit heals on you/your pet/your target, crits you take.
+--   "weapon": crits on your target while you auto-attack, sound by the weapon
+--             inferred from the auto-attack state (auto-repeat means ranged,
+--             melee means main-hand/off-hand). Druids in any shapeshift form are
+--             ignored (cat/bear attacks do not use the weapon).
 
 local SOUND_PATH = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Sounds\\"
 
@@ -33,6 +37,19 @@ local SUBCLASS_TO_CATEGORY = {
 	[Subclass.Wand] = "wand", -- TODO: verificar no Forever (Shoot da varinha dispara START_AUTOREPEAT_SPELL?)
 	[Subclass.Thrown] = "thrown", -- TODO: verificar no Forever (Throw é auto-repeat? No vanilla não era)
 }
+
+-- Damage school mask bits, checked in this order; physical is only used when no
+-- magic bit is set.
+local Damageclass = Enum.Damageclass
+local MAGIC_SCHOOLS = {
+	{ bit = Damageclass.MaskHoly, key = "holy" },
+	{ bit = Damageclass.MaskFire, key = "fire" },
+	{ bit = Damageclass.MaskNature, key = "nature" },
+	{ bit = Damageclass.MaskFrost, key = "frost" },
+	{ bit = Damageclass.MaskShadow, key = "shadow" },
+	{ bit = Damageclass.MaskArcane, key = "arcane" },
+}
+local SCHOOL_PHYSICAL = Damageclass.MaskPhysical
 
 -- Older clients have no secret values; treat everything as readable there.
 local issecretvalue = issecretvalue or function() return false end
@@ -74,9 +91,9 @@ local function UpdateShapeshiftForm()
 	end
 end
 
--- Weapons without their own sound file use the generic one.
-function ns.PlayCrit(category, ignoreThrottle)
-	local file = ns.db.sounds[category] or ns.db.sounds.generic
+-- Keys without their own sound file use the generic one.
+function ns.PlayCrit(key, ignoreThrottle)
+	local file = ns.db.sounds[key] or ns.db.sounds.generic
 	if not file then
 		return false
 	end
@@ -88,8 +105,24 @@ function ns.PlayCrit(category, ignoreThrottle)
 	return PlaySoundFile(SOUND_PATH .. file, ns.db.channel) and true or false
 end
 
--- Picks the sound category for the attack the player is most likely making.
-local function GetCurrentCategory()
+local function HasBit(mask, bit)
+	return math.floor(mask / bit) % 2 == 1
+end
+
+local function GetSchoolCategory(schoolMask)
+	if type(schoolMask) ~= "number" or schoolMask < SCHOOL_PHYSICAL then
+		return nil
+	end
+	for _, school in ipairs(MAGIC_SCHOOLS) do
+		if HasBit(schoolMask, school.bit) then
+			return school.key
+		end
+	end
+	return "physical"
+end
+
+-- Picks the weapon category for the attack the player is most likely making.
+local function GetCurrentWeaponCategory()
 	if isDruid and inShapeshiftForm then
 		return nil
 	elseif isAutoRepeating then
@@ -100,16 +133,72 @@ local function GetCurrentCategory()
 	end
 end
 
+-- Returns false when the answer is secret, so callers treat it as "unknown".
+local function SafeCheck(fn, ...)
+	local result = fn(...)
+	return not issecretvalue(result) and result
+end
+
 local function IsHostileTarget()
-	local canAttack = UnitCanAttack("player", "target")
-	return not issecretvalue(canAttack) and canAttack
+	return SafeCheck(UnitCanAttack, "player", "target")
+end
+
+-- When you target yourself or your pet, UNIT_COMBAT may also fire for "target";
+-- those crits are handled by the "player"/"pet" sources instead.
+local function IsTargetSelfOrPet()
+	return SafeCheck(UnitIsUnit, "target", "player") or SafeCheck(UnitIsUnit, "target", "pet")
+end
+
+-- "source" mode: unit + result + school, all reported by the event itself.
+local function GetSourceCategory(unit, action, flagText, schoolMask)
+	if unit == "target" then
+		if flagText ~= "CRITICAL" or IsTargetSelfOrPet() then
+			return nil
+		elseif action == "WOUND" and IsHostileTarget() then
+			if issecretvalue(schoolMask) then
+				return nil
+			end
+			return GetSchoolCategory(schoolMask)
+		elseif action == "HEAL" and not IsHostileTarget() then
+			return "heal_target"
+		end
+	elseif unit == "player" then
+		if action == "HEAL" and flagText == "CRITICAL" then
+			return "heal_player"
+		elseif action == "WOUND" and flagText == "CRITICAL" then
+			return "taken_crit"
+		elseif action == "WOUND" and flagText == "CRUSHING" then
+			return "taken_crushing"
+		end
+	elseif unit == "pet" then
+		if action == "HEAL" and flagText == "CRITICAL" then
+			return "heal_pet"
+		end
+	end
+end
+
+-- "weapon" mode: crits on your target, weapon guessed from the auto-attack state.
+local function GetWeaponModeCategory(unit, action, flagText)
+	if unit == "target" and action == "WOUND" and flagText == "CRITICAL" and IsHostileTarget() then
+		return GetCurrentWeaponCategory()
+	end
+end
+
+local function IsBelowMinimum(amount)
+	-- A secret amount only matters when a minimum is set.
+	return ns.db.minDamage > 0 and (issecretvalue(amount) or (amount or 0) < ns.db.minDamage)
 end
 
 function ns.UpdateEnabled()
-	if ns.db.enabled then
-		frame:RegisterUnitEvent("UNIT_COMBAT", "target")
+	frame:UnregisterEvent("UNIT_COMBAT")
+	if not ns.db.enabled then
+		return
+	end
+	if ns.db.mode == "source" then
+		-- player, pet and target: more than RegisterUnitEvent's two units.
+		frame:RegisterEvent("UNIT_COMBAT")
 	else
-		frame:UnregisterEvent("UNIT_COMBAT")
+		frame:RegisterUnitEvent("UNIT_COMBAT", "target")
 	end
 end
 
@@ -164,20 +253,18 @@ function handlers.PLAYER_LEAVE_COMBAT()
 	isMeleeAttacking = false
 end
 
-function handlers.UNIT_COMBAT(_, action, flagText, amount)
-	if issecretvalue(action) or issecretvalue(flagText) then
+function handlers.UNIT_COMBAT(unit, action, flagText, amount, schoolMask)
+	if issecretvalue(unit) or issecretvalue(action) or issecretvalue(flagText) then
 		return
 	end
-	if action ~= "WOUND" or flagText ~= "CRITICAL" or not IsHostileTarget() then
-		return
+	local key, toggles
+	if ns.db.mode == "source" then
+		key, toggles = GetSourceCategory(unit, action, flagText, schoolMask), ns.db.sources
+	else
+		key, toggles = GetWeaponModeCategory(unit, action, flagText), ns.db.categories
 	end
-	-- A secret amount only matters when a minimum is set.
-	if ns.db.minDamage > 0 and (issecretvalue(amount) or (amount or 0) < ns.db.minDamage) then
-		return
-	end
-	local category = GetCurrentCategory()
-	if category and ns.db.categories[category] then
-		ns.PlayCrit(category)
+	if key and toggles[key] and not IsBelowMinimum(amount) then
+		ns.PlayCrit(key)
 	end
 end
 
@@ -189,6 +276,10 @@ frame:RegisterEvent("PLAYER_LOGIN")
 
 local CHANNELS = { master = "Master", sfx = "SFX" }
 
+local function IsSoundKey(key)
+	return key == "generic" or ns.db.categories[key] ~= nil or ns.db.sources[key] ~= nil
+end
+
 SLASH_CRITRAG1 = "/critrag"
 SlashCmdList.CRITRAG = function(msg)
 	local cmd, arg = strsplit(" ", strlower(strtrim(msg or "")), 2)
@@ -197,17 +288,23 @@ SlashCmdList.CRITRAG = function(msg)
 	elseif cmd == "status" then
 		Print(L.STATUS:format(
 			ns.db.enabled and L.ON or L.OFF,
+			L["MODE_" .. ns.db.mode:upper()],
 			ns.db.channel,
 			ns.db.minDamage,
-			GetCurrentCategory() or "-"))
+			ns.db.mode == "weapon" and GetCurrentWeaponCategory() or "-"))
 		Print(L.USAGE)
 	elseif cmd == "on" or cmd == "off" then
 		ns.db.enabled = cmd == "on"
 		ns.UpdateEnabled()
 		Print(ns.db.enabled and L.ENABLED_MSG or L.DISABLED_MSG)
+	elseif cmd == "mode" and (arg == "source" or arg == "weapon") then
+		ns.db.mode = arg
+		ns.UpdateEnabled()
+		Print(L.MODE_SET:format(L["MODE_" .. arg:upper()]))
 	elseif cmd == "test" then
-		if arg ~= "generic" and ns.db.categories[arg or ""] == nil then
-			Print(L.UNKNOWN_CATEGORY:format(arg or "", table.concat(ns.WEAPON_CATEGORIES, ", ") .. ", generic"))
+		if not IsSoundKey(arg or "") then
+			Print(L.UNKNOWN_CATEGORY:format(arg or "", table.concat(ns.SOURCE_CATEGORIES, ", ") .. ", "
+				.. table.concat(ns.WEAPON_CATEGORIES, ", ") .. ", generic"))
 		elseif not ns.PlayCrit(arg, true) then
 			Print(L.PLAY_FAILED)
 		end
