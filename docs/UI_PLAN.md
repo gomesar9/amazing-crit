@@ -1,14 +1,14 @@
-# Plano — Painel de opções do CritRag (v0.4.0)
+# Plano — Painel de opções do AmazingCrit (v0.4.0)
 
-> **Status: implementado em 2026-10-21** (`CritRag/Options.lua`, testes em `tests/run.lua`). APIs do Settings conferidas no código da UI, branch `forever` 1.60.1 build 70450 — os itens "não documentados" abaixo existem lá. Falta só o checklist do lançamento. `AddonCompartmentFunc` não foi feito.
+> **Status: implementado em 2026-10-21** (`AmazingCrit/Options.lua`, testes em `tests/run.lua`). APIs do Settings conferidas no código da UI, branch `forever` 1.60.1 build 70450 — os itens "não documentados" abaixo existem lá. Falta só o checklist do lançamento. `AddonCompartmentFunc` não foi feito.
 
 ## Contexto
-Hoje toda configuração é via `/critrag ...`. Objetivo: painel em **Opções > AddOns > CritRag** usando o layout vertical nativo do Settings (decisão do usuário, 2026-10-21), com liga/desliga por arma. Beta encerrado: **não há teste em jogo até 2026-11-04** → validação offline com stubs + checklist para o lançamento.
+Hoje toda configuração é via `/amazingcrit ...`. Objetivo: painel em **Opções > AddOns > AmazingCrit** usando o layout vertical nativo do Settings (decisão do usuário, 2026-10-21), com liga/desliga por arma. Beta encerrado: **não há teste em jogo até 2026-11-04** → validação offline com stubs + checklist para o lançamento.
 
 ## Layout
 
 ```
-Opções > AddOns > CritRag
+Opções > AddOns > AmazingCrit
 [x] Ativado
 Canal de áudio        [ Master v ]        (Master, SFX)
 Dano mínimo     0 ====o===== 5000         (passo 50; 0 = qualquer crítico)
@@ -23,7 +23,7 @@ Botão "Defaults" nativo restaura os padrões.
 - Confirmadas na wiki (assinatura): `Settings.RegisterVerticalLayoutCategory(name)`, `Settings.RegisterAddOnSetting(category, variable, variableKey, variableTbl, variableType, name, defaultValue)`, `Settings.RegisterAddOnCategory(category)`, `Settings.OpenToCategory(category|id)`.
 - Inferidas de exemplo: `Settings.CreateCheckbox(category, setting, tooltip)`, `Settings.CreateSliderOptions(min, max, step)`, `Settings.CreateSlider(category, setting, options, tooltip)`.
 - Não documentadas (conferir no código do FrameXML 12.1.x / Forever quando possível): `Settings.CreateDropdown` + `Settings.CreateControlTextContainer`, `CreateSettingsListSectionHeaderInitializer`, `CreateSettingsButtonInitializer`, `setting:SetValueChangedCallback`, `category:GetID()`, `MinimalSliderWithSteppersMixin.Label.Right`.
-- Plano B se dropdown/botão falharem: canal só via slash; teste via slash (`/critrag test bow`).
+- Plano B se dropdown/botão falharem: canal só via slash; teste via slash (`/amazingcrit test bow`).
 
 ## Mudanças por arquivo
 - `Config.lua` — `DB_VERSION = 2`; novo `categories = { bow = true, sword = true }` em defaults; `Migrate`: v1→v2 só aplica defaults (merge já cobre).
@@ -33,12 +33,12 @@ Botão "Defaults" nativo restaura os padrões.
   - `PLAYER_LOGIN`: chamar `ns.InitOptions()` depois do DB.
   - Slash: sem argumento → `Settings.OpenToCategory(ns.optionsCategory:GetID())`; `status` → texto atual; demais comandos iguais.
 - **Novo `Options.lua`** (TOC: depois de `Config.lua`, antes de `Core.lua`) — `ns.InitOptions()`:
-  - `RegisterAddOnSetting` direto sobre `CritRagDB` para `enabled`, `channel`, `minDamage`, `throttle`; `categories.bow`/`categories.sword` com `variableTbl = CritRagDB.categories`. Variáveis únicas: `"CritRag_enabled"` etc.
+  - `RegisterAddOnSetting` direto sobre `AmazingCritDB` para `enabled`, `channel`, `minDamage`, `throttle`; `categories.bow`/`categories.sword` com `variableTbl = AmazingCritDB.categories`. Variáveis únicas: `"AmazingCrit_enabled"` etc.
   - Callback de `enabled` → `ns.UpdateEnabled()`.
   - Botões "Testar" → `ns.PlayCrit(cat, true)`.
   - Guarda `ns.optionsCategory`.
 - `Locales/enUS.lua`, `ptBR.lua` — rótulos e tooltips (`OPT_ENABLED`, `OPT_CHANNEL`, `OPT_MIN_DAMAGE`, `OPT_THROTTLE`, `OPT_WEAPONS`, `OPT_BOW`, `OPT_SWORD`, `OPT_TEST`, + `_TT`).
-- `CritRag.toc` — incluir `Options.lua`; versão 0.4.0. Opcional: `## AddonCompartmentFunc` (TODO verificar no Forever).
+- `AmazingCrit.toc` — incluir `Options.lua`; versão 0.4.0. Opcional: `## AddonCompartmentFunc` (TODO verificar no Forever).
 - `.luacheckrc` — `Settings`, `CreateSettingsButtonInitializer`, `CreateSettingsListSectionHeaderInitializer`, `MinimalSliderWithSteppersMixin`.
 - `README.md`, `CHANGELOG.md` — painel + APIs usadas.
 

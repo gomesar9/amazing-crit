@@ -1,4 +1,4 @@
-# CritRag
+# AmazingCrit
 
 Toca um som em críticos. Dois modos, trocados no painel:
 
@@ -29,12 +29,12 @@ Vara de pesca e soco (sem arma) não tocam. Druida em qualquer forma (urso, gato
 
 ## Instalação
 
-Copie a pasta `CritRag` para `World of Warcraft/_classic_beta_/Interface/AddOns/`
+Copie a pasta `AmazingCrit` para `World of Warcraft/_classic_beta_/Interface/AddOns/`
 (após o lançamento, confirmar a pasta do Forever).
 
 ## Opções
 
-Painel em **Opções > AddOns > CritRag** (ou `/critrag`):
+Painel em **Opções > AddOns > AmazingCrit** (ou `/amazingcrit`):
 
 - **Ativado**
 - **Modo** — Por fonte (preciso) ou Por arma (solo)
@@ -49,17 +49,17 @@ O botão "Padrões" do painel restaura tudo.
 
 ## Comandos
 
-- `/critrag` — abre o painel de opções
-- `/critrag status` — status e ajuda
-- `/critrag on` / `off`
-- `/critrag mode source` / `weapon` — troca o modo
-- `/critrag test <som>` — toca um som: fonte (`physical`, `holy`, `fire`, `nature`, `frost`, `shadow`, `arcane`, `heal_player`, `heal_pet`, `heal_target`, `taken_crit`, `taken_crushing`), arma (`sword`, `axe`, `mace`, `dagger`, `fist`, `polearm`, `staff`, `bow`, `gun`, `crossbow`, `wand`, `thrown`) ou `generic`
-- `/critrag min 300` — só toca em críticos (dano ou cura) ≥ 300 (`min 0` = qualquer crítico; padrão 0). Aceita qualquer valor; o slider mostra o passo mais próximo
-- `/critrag channel master` / `sfx` — canal de áudio (volume segue o canal)
+- `/amazingcrit` — abre o painel de opções
+- `/amazingcrit status` — status e ajuda
+- `/amazingcrit on` / `off`
+- `/amazingcrit mode source` / `weapon` — troca o modo
+- `/amazingcrit test <som>` — toca um som: fonte (`physical`, `holy`, `fire`, `nature`, `frost`, `shadow`, `arcane`, `heal_player`, `heal_pet`, `heal_target`, `taken_crit`, `taken_crushing`), arma (`sword`, `axe`, `mace`, `dagger`, `fist`, `polearm`, `staff`, `bow`, `gun`, `crossbow`, `wand`, `thrown`) ou `generic`
+- `/amazingcrit min 300` — só toca em críticos (dano ou cura) ≥ 300 (`min 0` = qualquer crítico; padrão 0). Aceita qualquer valor; o slider mostra o passo mais próximo
+- `/amazingcrit channel master` / `sfx` — canal de áudio (volume segue o canal)
 
 ## Limitações
 
-- O Forever bloqueia `COMBAT_LOG_EVENT_UNFILTERED` para addons. O CritRag usa `UNIT_COMBAT`, que informa quem recebeu o dano/cura, o tipo, o crítico, o valor e a escola — **mas não quem causou**.
+- O Forever bloqueia `COMBAT_LOG_EVENT_UNFILTERED` para addons. O AmazingCrit usa `UNIT_COMBAT`, que informa quem recebeu o dano/cura, o tipo, o crítico, o valor e a escola — **mas não quem causou**.
 - Modo por fonte: críticos de outros jogadores e pets no seu alvo, e curas críticas de outros healers em você, também tocam. Use o **valor mínimo** para filtrar críticos pequenos.
 - Modo por arma: em grupo ou com pet, críticos de terceiros no seu alvo tocam o som da sua arma. Arremesso e o "Shoot" de guerreiro/ladino com arco, arma de fogo ou besta podem não ser tiro automático no Forever (no vanilla não eram); nesse caso não tocam.
 - Dentro de encontros de raid os dados podem vir como *secret values*; nesse caso o som não toca.
@@ -67,7 +67,7 @@ O botão "Padrões" do painel restaura tudo.
 
 ## Trocar os sons
 
-Os arquivos ficam em `Interface/AddOns/CritRag/Sounds/`: `bow.ogg`, `sword.ogg` e `generic.ogg` (usado por todas as fontes e armas sem som próprio). Para trocar, substitua o arquivo mantendo o nome e **reinicie o jogo**.
+Os arquivos ficam em `Interface/AddOns/AmazingCrit/Sounds/`: `bow.ogg`, `sword.ogg` e `generic.ogg` (usado por todas as fontes e armas sem som próprio). Para trocar, substitua o arquivo mantendo o nome e **reinicie o jogo**.
 
 ## Depuração
 

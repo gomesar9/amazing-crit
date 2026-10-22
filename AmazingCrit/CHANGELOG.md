@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 — 2026-10-22
+
+- Projeto renomeado de CritRag para **AmazingCrit**: pasta `AmazingCrit/`, `AmazingCrit.toc`, comando `/amazingcrit`, SavedVariables `AmazingCritDB`.
+- Configurações salvas do CritRag não são migradas (o jogo guarda SavedVariables por nome de addon); remova a pasta antiga `Interface/AddOns/CritRag/`.
+
 ## 0.6.0 — 2026-10-22
 
 - **Dois modos**, trocados no painel ou com `/critrag mode source|weapon`:

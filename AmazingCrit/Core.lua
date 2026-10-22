@@ -280,8 +280,8 @@ local function IsSoundKey(key)
 	return key == "generic" or ns.db.categories[key] ~= nil or ns.db.sources[key] ~= nil
 end
 
-SLASH_CRITRAG1 = "/critrag"
-SlashCmdList.CRITRAG = function(msg)
+SLASH_AMAZINGCRIT1 = "/amazingcrit"
+SlashCmdList.AMAZINGCRIT = function(msg)
 	local cmd, arg = strsplit(" ", strlower(strtrim(msg or "")), 2)
 	if cmd == "" then
 		ns.OpenOptions()

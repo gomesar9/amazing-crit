@@ -3,3 +3,7 @@ docs/references/
 
 # Local deploy script (machine-specific paths)
 deploy.sh
+
+# Local packaging script and its output
+package.sh
+dist/

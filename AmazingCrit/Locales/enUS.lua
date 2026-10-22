@@ -1,7 +1,7 @@
 local _, ns = ...
 
 ns.L = {
-	PREFIX = "|cFFFF8000CritRag|r: ",
+	PREFIX = "|cFFFF8000AmazingCrit|r: ",
 	STATUS = "enabled: %s | mode: %s | channel: %s | min amount: %d | current weapon sound: %s",
 	ON = "on",
 	OFF = "off",
@@ -12,7 +12,7 @@ ns.L = {
 	MODE_SET = "mode set to %s.",
 	UNKNOWN_CATEGORY = "unknown sound \"%s\". Options: %s.",
 	PLAY_FAILED = "could not play the sound (channel muted or file missing?).",
-	USAGE = "usage: /critrag [status | on | off | mode source|weapon | test <sound> | min <amount> | channel master|sfx] (no argument opens the options)",
+	USAGE = "usage: /amazingcrit [status | on | off | mode source|weapon | test <sound> | min <amount> | channel master|sfx] (no argument opens the options)",
 	OPT_ENABLED = "Enabled",
 	OPT_ENABLED_TT = "Play a sound on critical hits and heals.",
 	OPT_MODE = "Mode",
@@ -26,7 +26,7 @@ ns.L = {
 	OPT_CHANNEL_MASTER = "Master",
 	OPT_CHANNEL_SFX = "Effects",
 	OPT_MIN_DAMAGE = "Minimum amount",
-	OPT_MIN_DAMAGE_TT = "Crits (damage or heal) below this amount are ignored (0 = any crit). Use /critrag min <amount> for exact values.",
+	OPT_MIN_DAMAGE_TT = "Crits (damage or heal) below this amount are ignored (0 = any crit). Use /amazingcrit min <amount> for exact values.",
 	OPT_THROTTLE = "Minimum interval",
 	OPT_THROTTLE_TT = "Minimum time between two crit sounds.",
 	OPT_SOURCES = "Sources (precise mode)",

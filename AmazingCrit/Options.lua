@@ -37,7 +37,7 @@ for _, range in ipairs({ { 5, 50, 5 }, { 60, 100, 10 }, { 150, 1000, 50 }, { 110
 end
 ns.MIN_DAMAGE_STEPS = MIN_DAMAGE_STEPS
 
--- Index (0-based) of the step closest to value; /critrag min accepts any number.
+-- Index (0-based) of the step closest to value; /amazingcrit min accepts any number.
 local function MinDamageToIndex(value)
 	local best, bestDiff = 0, math.huge
 	for i, step in ipairs(MIN_DAMAGE_STEPS) do

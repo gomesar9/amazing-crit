@@ -3,8 +3,8 @@ max_line_length = false
 exclude_files = { "docs/" }
 
 globals = {
-	"CritRagDB",
-	"SLASH_CRITRAG1",
+	"AmazingCritDB",
+	"SLASH_AMAZINGCRIT1",
 	"SlashCmdList",
 }
 

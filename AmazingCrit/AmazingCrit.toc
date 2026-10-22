@@ -1,0 +1,13 @@
+## Interface: 16001
+## Title: AmazingCrit
+## Notes: Plays a sound on critical hits and heals, by damage school or by weapon.
+## Notes-ptBR: Toca um som em danos e curas críticos, por escola de dano ou por arma.
+## Author: gomes
+## Version: 0.7.0
+## SavedVariables: AmazingCritDB
+
+Locales\enUS.lua
+Locales\ptBR.lua
+Config.lua
+Options.lua
+Core.lua

@@ -2,16 +2,17 @@
 
 ## O que este addon faz
 
-**CritRag** (pasta `CritRag/`, comando `/critrag`, SavedVariables `CritRagDB`) toca um som (`.ogg`) quando o jogador acerta um golpe crítico. O som varia conforme a arma. Dois modos (`ns.MODES`, `Config.lua`): **source** (preciso, padrão) — som por fonte certa (`ns.SOURCE_CATEGORIES`: escola do dano crítico no alvo, cura crítica em player/pet/alvo, crítico/esmagador recebido); **weapon** (heurístico, para jogar solo) — som por arma (`ns.WEAPON_CATEGORIES`). Som próprio só para **arco** e **espada**; o resto usa `Sounds/generic.ogg` até o usuário entregar os sons (um por escola/fonte). Nome antigo "CritSound" foi abandonado (conflita com o addon CritSound de Nexio, GPLv3, em `docs/references/CritSound/` (local, fora do git) só como referência — não copiar código nem sons).
+**AmazingCrit** (pasta `AmazingCrit/`, comando `/amazingcrit`, SavedVariables `AmazingCritDB`) toca um som (`.ogg`) quando o jogador acerta um golpe crítico. O som varia conforme a arma. Dois modos (`ns.MODES`, `Config.lua`): **source** (preciso, padrão) — som por fonte certa (`ns.SOURCE_CATEGORIES`: escola do dano crítico no alvo, cura crítica em player/pet/alvo, crítico/esmagador recebido); **weapon** (heurístico, para jogar solo) — som por arma (`ns.WEAPON_CATEGORIES`). Som próprio só para **arco** e **espada**; o resto usa `Sounds/generic.ogg` até o usuário entregar os sons (um por escola/fonte). Nomes antigos: "CritRag" (até v0.6.0) e "CritSound", este abandonado (conflita com o addon CritSound de Nexio, GPLv3, em `docs/references/CritSound/` (local, fora do git) só como referência — não copiar código nem sons).
 
 ### Estado atual (v0.6.0, 2026-10-22)
 
 - Servidor do Forever voltou em 2026-10-22; v0.4.0 (arco, espada, painel) testada em jogo e OK pelo usuário. Comportamento ainda não confirmado em jogo fica marcado `-- TODO: verificar no Forever`.
-- Sons: originais em `assets/sounds/` (.mp3), convertidos com ffmpeg para `CritRag/Sounds/*.ogg` (comando no `README.md` raiz).
-- Deploy: `./deploy.sh` (local, fora do git via `.gitignore`; rsync de `CritRag/` para `<WoW>/_classic_beta_/Interface/AddOns/CritRag/`; `WOW_DIR`/`GAME_DIR` sobrescrevem o destino). Após o lançamento, trocar `GAME_DIR` para a pasta real do Forever.
+- Sons: originais em `assets/sounds/` (.mp3), convertidos com ffmpeg para `AmazingCrit/Sounds/*.ogg` (comando no `README.md` raiz).
+- Pacote: `./package.sh` (local, fora do git) gera `dist/AmazingCrit-<versão>.zip` só com `.toc`, `.lua` e `Sounds/*.ogg`; valida que todo arquivo do TOC existe.
+- Deploy: `./deploy.sh` (local, fora do git via `.gitignore`; rsync de `AmazingCrit/` para `<WoW>/_classic_beta_/Interface/AddOns/AmazingCrit/`; `WOW_DIR`/`GAME_DIR` sobrescrevem o destino). Após o lançamento, trocar `GAME_DIR` para a pasta real do Forever.
 - **Testes offline: `lua tests/run.lua`** (Lua 5.4 local). Stubs da API do WoW + carga dos arquivos na ordem do TOC + disparo de eventos. Rodar antes de considerar qualquer mudança pronta; ao adicionar API nova, adicionar o stub correspondente. Stubs não substituem teste em jogo.
 - **Código-fonte da UI do Forever** (melhor que a wiki para Settings/FrameXML): https://github.com/Gethe/wow-ui-source/tree/forever (branch `forever` = 1.60.1). Ex.: `Interface/AddOns/Blizzard_Settings_Shared/Blizzard_Settings.lua`.
-- Painel de opções: `CritRag/Options.lua`, layout vertical nativo do Settings (plano em `docs/UI_PLAN.md`).
+- Painel de opções: `AmazingCrit/Options.lua`, layout vertical nativo do Settings (plano em `docs/UI_PLAN.md`).
 - `luacheck` não está instalado (luarocks falha por falta de `lua.h`; precisa `liblua5.1-dev` via sudo). Enquanto isso: `lua -e "assert(loadfile('arquivo.lua'))"`.
 
 ### Abordagem técnica (confirmada no beta 1.60.1)
@@ -21,12 +22,12 @@
    - **O que é certo**: unidade que recebeu, tipo (dano/cura), crítico, valor, escola. **O que NÃO é**: quem causou, e ataque comum vs habilidade (ambos "físico"). Decisão do usuário: modo **source** usa só informação certa; modo **weapon** é a heurística, para jogar solo.
    - Modo source: `RegisterEvent("UNIT_COMBAT")` (todas as unidades; filtra `player`/`pet`/`target`). Modo weapon: `RegisterUnitEvent(..., "target")`.
    - Cura no alvo ignorada se alvo for você/pet (`UnitIsUnit`, pode ser secret → tratado como "não"). Dano no alvo só se hostil; cura no alvo só se não hostil.
-   - Valor mínimo (`minDamage`, `/critrag min`) vale para dano e cura.
+   - Valor mínimo (`minDamage`, `/amazingcrit min`) vale para dano e cura.
 3. **Modo weapon — arma inferida pelo estado de ataque automático**: `START_AUTOREPEAT_SPELL`/`STOP_AUTOREPEAT_SPELL` (Auto Shot → slot ranged) e `PLAYER_ENTER_COMBAT`/`PLAYER_LEAVE_COMBAT` (auto-attack corpo a corpo → main-hand, senão off-hand). Sem ataque automático ativo → não toca. Confirmado em jogo para Auto Shot e corpo a corpo; varinha/arremesso ainda não.
    - Druida (`UnitClassBase`) em qualquer forma (`GetShapeshiftFormInfo` isActive, atualizado em `UPDATE_SHAPESHIFT_FORM`) → não toca.
    - Categoria por slot via `GetInventoryItemID` + `C_Item.GetItemInfoInstant` (classID 6º, subClassID 7º retorno; não precisa de cache de servidor) + `Enum.ItemWeaponSubclass` (tabela `SUBCLASS_TO_CATEGORY` em `Core.lua`; 1M/2M na mesma categoria; vara de pesca e Warglaive/Generic/Bearclaw/Catclaw fora). Cache atualizado em `PLAYER_EQUIPMENT_CHANGED`.
-4. **Tocar o som**: `PlaySoundFile("Interface\\AddOns\\CritRag\\Sounds\\<arquivo>", canal)` (aceita .ogg e .mp3; canal Master/SFX). Throttle por `GetTime()`. Arquivo de som novo: reiniciar o cliente.
-5. **Opções (SavedVariables, `Config.lua`, versão 4)**: `enabled`, `mode`, `channel`, `throttle`, `minDamage`, `sources = { <fonte> = bool }`, `categories = { <arma> = bool }`, `sounds = { bow, sword, generic }` (chave sem entrada usa `generic`); migração v3→v4 põe usuários antigos em `mode = "weapon"`; versionadas por `version` com merge de defaults. Slash: `/critrag` abre o painel; `/critrag [status|on|off|mode source|weapon|test <som>|min <n>|channel master|sfx]`.
+4. **Tocar o som**: `PlaySoundFile("Interface\\AddOns\\AmazingCrit\\Sounds\\<arquivo>", canal)` (aceita .ogg e .mp3; canal Master/SFX). Throttle por `GetTime()`. Arquivo de som novo: reiniciar o cliente.
+5. **Opções (SavedVariables, `Config.lua`, versão 4)**: `enabled`, `mode`, `channel`, `throttle`, `minDamage`, `sources = { <fonte> = bool }`, `categories = { <arma> = bool }`, `sounds = { bow, sword, generic }` (chave sem entrada usa `generic`); migração v3→v4 põe usuários antigos em `mode = "weapon"`; versionadas por `version` com merge de defaults. Slash: `/amazingcrit` abre o painel; `/amazingcrit [status|on|off|mode source|weapon|test <som>|min <n>|channel master|sfx]`.
 
 ## Contexto do projeto
 

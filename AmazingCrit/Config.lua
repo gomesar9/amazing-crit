@@ -72,11 +72,11 @@ local function Migrate(db)
 end
 
 function ns.InitDB()
-	if type(CritRagDB) ~= "table" then
+	if type(AmazingCritDB) ~= "table" then
 		-- New installs start at the current version, so Migrate leaves them alone.
-		CritRagDB = { version = DB_VERSION }
+		AmazingCritDB = { version = DB_VERSION }
 	end
-	ApplyDefaults(CritRagDB, ns.defaults)
-	Migrate(CritRagDB)
-	ns.db = CritRagDB
+	ApplyDefaults(AmazingCritDB, ns.defaults)
+	Migrate(AmazingCritDB)
+	ns.db = AmazingCritDB
 end

@@ -1,9 +1,9 @@
--- Offline test harness for CritRag: stubs the WoW API, loads the addon in TOC order
+-- Offline test harness for AmazingCrit: stubs the WoW API, loads the addon in TOC order
 -- and fires events. Run from the repo root: lua tests/run.lua
 -- Stubs mirror the behavior verified in Blizzard UI source (branch "forever", 1.60.1);
 -- they are not a substitute for in-game testing.
 
-local ADDON_NAME = "CritRag"
+local ADDON_NAME = "AmazingCrit"
 local ADDON_DIR = ADDON_NAME .. "/"
 
 ---------------------------------------------------------------------------
@@ -181,9 +181,9 @@ local function ResetEnvironment(opts)
 		targetIs = nil, -- "player" | "pet" | nil: what UnitIsUnit("target", x) matches
 	}
 
-	_G.CritRagDB = opts.savedVariables or (opts.mode and { version = 4, mode = opts.mode })
+	_G.AmazingCritDB = opts.savedVariables or (opts.mode and { version = 4, mode = opts.mode })
 	_G.SlashCmdList = {}
-	_G.SLASH_CRITRAG1 = nil
+	_G.SLASH_AMAZINGCRIT1 = nil
 
 	_G.Enum = {
 		ItemClass = { Weapon = 2, Armor = 4 },
@@ -309,7 +309,7 @@ local function LoadAddon(opts)
 end
 
 local function Slash(msg)
-	_G.SlashCmdList.CRITRAG(msg)
+	_G.SlashCmdList.AMAZINGCRIT(msg)
 end
 
 ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ test("minimum damage filters small crits", function()
 	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
 	Slash("min 300")
-	eq(_G.CritRagDB.minDamage, 300, "minDamage")
+	eq(_G.AmazingCritDB.minDamage, 300, "minDamage")
 	Crit(299)
 	eq(#state.played, 0, "below minimum")
 	Crit(300)
@@ -453,7 +453,7 @@ test("minimum damage slider uses non-linear steps", function()
 		eq(steps[i] - steps[i - 1], expectedDiff(steps[i]), "step before " .. steps[i])
 	end
 
-	local slider = FindInitializer(ns, function(i) return i.kind == "slider" and i.setting.variable == "CritRag_minDamage" end)
+	local slider = FindInitializer(ns, function(i) return i.kind == "slider" and i.setting.variable == "AmazingCrit_minDamage" end)
 	eq(slider.options.minValue, 0, "slider min")
 	eq(slider.options.maxValue, #steps - 1, "slider max")
 	eq(slider.options.steps, #steps - 1, "slider steps")
@@ -462,18 +462,18 @@ test("minimum damage slider uses non-linear steps", function()
 	eq(setting.defaultValue, 0, "default index")
 
 	setting:SetValue(10)
-	eq(_G.CritRagDB.minDamage, 50, "index 10 -> 50")
+	eq(_G.AmazingCritDB.minDamage, 50, "index 10 -> 50")
 	eq(format(10), 50, "label for index 10")
 	setting:SetValue(15)
-	eq(_G.CritRagDB.minDamage, 100, "index 15 -> 100")
+	eq(_G.AmazingCritDB.minDamage, 100, "index 15 -> 100")
 	setting:SetValue(16)
-	eq(_G.CritRagDB.minDamage, 150, "index 16 -> 150")
+	eq(_G.AmazingCritDB.minDamage, 150, "index 16 -> 150")
 	setting:SetValue(#steps - 1)
-	eq(_G.CritRagDB.minDamage, 5000, "last index -> 5000")
+	eq(_G.AmazingCritDB.minDamage, 5000, "last index -> 5000")
 	eq(setting:GetValue(), #steps - 1, "round trip")
 
 	Slash("min 333")
-	eq(_G.CritRagDB.minDamage, 333, "slash keeps exact value")
+	eq(_G.AmazingCritDB.minDamage, 333, "slash keeps exact value")
 	eq(format(setting:GetValue()), 350, "slider shows nearest step")
 	Slash("min 0")
 	eq(setting:GetValue(), 0, "zero")
@@ -519,7 +519,7 @@ test("options panel registers every control", function()
 		local label = initializer.setting and initializer.setting.name or initializer.name
 		assert(label, "control without label: " .. tostring(initializer.kind))
 	end
-	local dropdown = FindInitializer(ns, function(i) return i.kind == "dropdown" and i.setting.variable == "CritRag_channel" end)
+	local dropdown = FindInitializer(ns, function(i) return i.kind == "dropdown" and i.setting.variable == "AmazingCrit_channel" end)
 	local channels = dropdown.options()
 	eq(#channels, 2, "channel options")
 	eq(channels[1].value, "Master", "first channel")
@@ -528,7 +528,7 @@ end)
 test("unchecking a weapon silences it, test button still plays", function()
 	local ns = LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
-	_G.Settings.settings.CritRag_weapon_sword:SetValue(false)
+	_G.Settings.settings.AmazingCrit_weapon_sword:SetValue(false)
 	Crit()
 	eq(#state.played, 0, "unchecked weapon")
 	local button = FindInitializer(ns, function(i) return i.kind == "button" end)
@@ -539,10 +539,10 @@ end)
 test("enabled checkbox toggles UNIT_COMBAT registration", function()
 	LoadAddon({ mode = "weapon", equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
-	_G.Settings.settings.CritRag_enabled:SetValue(false)
+	_G.Settings.settings.AmazingCrit_enabled:SetValue(false)
 	Crit()
 	eq(#state.played, 0, "disabled")
-	_G.Settings.settings.CritRag_enabled:SetValue(true)
+	_G.Settings.settings.AmazingCrit_enabled:SetValue(true)
 	Crit()
 	eq(#state.played, 1, "re-enabled")
 end)
@@ -552,9 +552,9 @@ test("slash commands", function()
 	Slash("")
 	eq(_G.Settings.opened, ns.optionsCategory:GetID(), "no argument opens options")
 	Slash("channel sfx")
-	eq(_G.CritRagDB.channel, "SFX", "channel")
+	eq(_G.AmazingCritDB.channel, "SFX", "channel")
 	Slash("off")
-	eq(_G.CritRagDB.enabled, false, "off")
+	eq(_G.AmazingCritDB.enabled, false, "off")
 	Slash("test sword")
 	eq(lastSound(), "sword.ogg", "test plays even when disabled")
 	Slash("test generic")
@@ -571,7 +571,7 @@ end)
 
 test("v1 SavedVariables migrate keeping user values", function()
 	LoadAddon({ savedVariables = { version = 1, enabled = false, channel = "SFX", minDamage = 250 } })
-	local db = _G.CritRagDB
+	local db = _G.AmazingCritDB
 	eq(db.version, 4, "version")
 	eq(db.mode, "weapon", "existing users keep weapon mode")
 	eq(db.sources.fire, true, "sources added")
@@ -586,7 +586,7 @@ end)
 
 test("v2 SavedVariables keep per-weapon choices", function()
 	LoadAddon({ savedVariables = { version = 2, categories = { bow = false, sword = true } } })
-	local db = _G.CritRagDB
+	local db = _G.AmazingCritDB
 	eq(db.version, 4, "version")
 	eq(db.mode, "weapon", "existing users keep weapon mode")
 	eq(db.categories.bow, false, "bow choice kept")
@@ -613,7 +613,7 @@ test("every weapon subclass we classify has a category and locale label", functi
 	for _, category in ipairs(ns.WEAPON_CATEGORIES) do
 		known[category] = true
 		assert(ns.L["WEAPON_" .. category:upper()], "missing label for " .. category)
-		eq(_G.CritRagDB.categories[category], true, "default for " .. category)
+		eq(_G.AmazingCritDB.categories[category], true, "default for " .. category)
 	end
 	local W = _G.Enum.ItemWeaponSubclass
 	local expected = {
@@ -628,10 +628,10 @@ test("every weapon subclass we classify has a category and locale label", functi
 			or category == "wand" or category == "thrown") and 18 or 16
 		LoadAddon({ mode = "weapon", equipped = { [slot] = { id = 2000 + subClassID, classID = 2, subClassID = subClassID } } })
 		FireEvent(slot == 18 and "START_AUTOREPEAT_SPELL" or "PLAYER_ENTER_COMBAT")
-		_G.Settings.settings["CritRag_weapon_" .. category]:SetValue(false)
+		_G.Settings.settings["AmazingCrit_weapon_" .. category]:SetValue(false)
 		Crit()
 		eq(#state.played, 0, category .. " checkbox controls subclass " .. subClassID)
-		_G.Settings.settings["CritRag_weapon_" .. category]:SetValue(true)
+		_G.Settings.settings["AmazingCrit_weapon_" .. category]:SetValue(true)
 		Crit()
 		eq(#state.played, 1, category .. " plays for subclass " .. subClassID)
 	end
@@ -692,7 +692,7 @@ end)
 local function LoadSourceMode(opts)
 	local ns = LoadAddon(opts)
 	for _, key in ipairs(ns.SOURCE_CATEGORIES) do
-		_G.CritRagDB.sounds[key] = key .. ".ogg"
+		_G.AmazingCritDB.sounds[key] = key .. ".ogg"
 	end
 	return ns
 end
@@ -704,8 +704,8 @@ end
 
 test("new installs start in source mode", function()
 	LoadAddon()
-	eq(_G.CritRagDB.mode, "source", "mode")
-	eq(_G.CritRagDB.version, 4, "version")
+	eq(_G.AmazingCritDB.mode, "source", "mode")
+	eq(_G.AmazingCritDB.version, 4, "version")
 end)
 
 test("crit damage on target is classified by school", function()
@@ -783,7 +783,7 @@ end)
 
 test("source toggles and minimum amount apply", function()
 	LoadSourceMode()
-	_G.Settings.settings.CritRag_source_fire:SetValue(false)
+	_G.Settings.settings.AmazingCrit_source_fire:SetValue(false)
 	Combat("target", "WOUND", "CRITICAL", 500, 4)
 	eq(#state.played, 0, "fire disabled")
 	Combat("target", "WOUND", "CRITICAL", 500, 16)
@@ -798,12 +798,12 @@ end)
 test("weapon toggles do not affect source mode and vice versa", function()
 	LoadSourceMode({ equipped = { [16] = SWORD } })
 	FireEvent("PLAYER_ENTER_COMBAT")
-	_G.Settings.settings.CritRag_weapon_sword:SetValue(false)
+	_G.Settings.settings.AmazingCrit_weapon_sword:SetValue(false)
 	Combat("target", "WOUND", "CRITICAL", 500, 1)
 	eq(lastSound(), "physical.ogg", "source mode ignores weapon toggle")
-	_G.Settings.settings.CritRag_weapon_sword:SetValue(true)
-	_G.Settings.settings.CritRag_source_physical:SetValue(false)
-	_G.Settings.settings.CritRag_mode:SetValue("weapon")
+	_G.Settings.settings.AmazingCrit_weapon_sword:SetValue(true)
+	_G.Settings.settings.AmazingCrit_source_physical:SetValue(false)
+	_G.Settings.settings.AmazingCrit_mode:SetValue("weapon")
 	Combat("target", "WOUND", "CRITICAL", 500, 1)
 	eq(lastSound(), "sword.ogg", "weapon mode ignores source toggle")
 end)
@@ -812,12 +812,12 @@ test("switching mode changes UNIT_COMBAT registration", function()
 	LoadSourceMode()
 	Combat("player", "HEAL", "CRITICAL")
 	eq(#state.played, 1, "source mode hears player")
-	_G.Settings.settings.CritRag_mode:SetValue("weapon")
+	_G.Settings.settings.AmazingCrit_mode:SetValue("weapon")
 	Combat("player", "HEAL", "CRITICAL")
 	Combat("player", "WOUND", "CRITICAL")
 	eq(#state.played, 1, "weapon mode only listens to target")
 	Slash("mode source")
-	eq(_G.CritRagDB.mode, "source", "slash mode")
+	eq(_G.AmazingCritDB.mode, "source", "slash mode")
 	Combat("player", "HEAL", "CRITICAL")
 	eq(#state.played, 2, "back to source mode")
 	Slash("off")
@@ -840,12 +840,12 @@ end)
 
 test("source and weapon checkboxes are enabled only in their mode", function()
 	local ns = LoadAddon()
-	local mode = FindInitializer(ns, function(i) return i.kind == "dropdown" and i.setting.variable == "CritRag_mode" end)
+	local mode = FindInitializer(ns, function(i) return i.kind == "dropdown" and i.setting.variable == "AmazingCrit_mode" end)
 	local values = {}
 	for _, option in ipairs(mode.options()) do values[#values + 1] = option.value end
 	eq(table.concat(values, ","), "source,weapon", "mode options")
-	local fire = FindInitializer(ns, function(i) return i.setting and i.setting.variable == "CritRag_source_fire" end)
-	local sword = FindInitializer(ns, function(i) return i.setting and i.setting.variable == "CritRag_weapon_sword" end)
+	local fire = FindInitializer(ns, function(i) return i.setting and i.setting.variable == "AmazingCrit_source_fire" end)
+	local sword = FindInitializer(ns, function(i) return i.setting and i.setting.variable == "AmazingCrit_weapon_sword" end)
 	eq(fire.parent, mode, "source parent")
 	eq(sword.parent, mode, "weapon parent")
 	eq(fire.predicate(), true, "source enabled in source mode")

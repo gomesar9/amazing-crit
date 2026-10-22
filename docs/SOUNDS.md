@@ -1,10 +1,10 @@
-# Mapeamento de sons do CritRag
+# Mapeamento de sons do AmazingCrit
 
 Tabela de cada gatilho de som, nos dois modos, com o arquivo usado hoje e o nome padronizado sugerido para o som definitivo.
 
-- Arquivos ficam em `CritRag/Sounds/` (no jogo: `Interface/AddOns/CritRag/Sounds/`). Formato `.ogg`; originais em `assets/sounds/`.
+- Arquivos ficam em `AmazingCrit/Sounds/` (no jogo: `Interface/AddOns/AmazingCrit/Sounds/`). Formato `.ogg`; originais em `assets/sounds/`.
 - **`*`** = hoje toca `generic.ogg` porque **falta o som específico**.
-- **Chave** = nome usado no código (`sounds` em `Config.lua`) e no comando `/critrag test <chave>`.
+- **Chave** = nome usado no código (`sounds` em `Config.lua`) e no comando `/amazingcrit test <chave>`.
 - Padrão de nome: `<modo>_<chave>.ogg`, tudo minúsculo, `_` como separador.
 
 ## Modo "Por fonte (preciso)"
@@ -70,12 +70,12 @@ Tabela de cada gatilho de som, nos dois modos, com o arquivo usado hoje e o nome
 
 - 24 gatilhos: 12 no modo por fonte, 12 no modo por arma.
 - 2 com som próprio (`sword`, `bow`); **22 faltando** (`*`).
-- `sword.ogg` e `bow.ogg` funcionam como estão; "(renomear)" só indica o nome no padrão, se quiser uniformizar. Atenção: a tabela `sounds` fica salva na configuração do jogador (`CritRagDB`), então renomear um arquivo de chave **já existente** exige uma migração em `Config.lua`; chaves novas não precisam.
+- `sword.ogg` e `bow.ogg` funcionam como estão; "(renomear)" só indica o nome no padrão, se quiser uniformizar. Atenção: a tabela `sounds` fica salva na configuração do jogador (`AmazingCritDB`), então renomear um arquivo de chave **já existente** exige uma migração em `Config.lua`; chaves novas não precisam.
 
 ## Como adicionar um som
 
 1. Converta o arquivo para `.ogg` com o nome sugerido, por exemplo:
-   `ffmpeg -i assets/sounds/fire.mp3 -c:a libvorbis -q:a 5 CritRag/Sounds/source_fire.ogg`
-2. Ligue a chave ao arquivo em `ns.defaults.sounds` (`CritRag/Config.lua`), por exemplo `fire = "source_fire.ogg"`. Quem já tem configuração salva recebe a chave nova automaticamente.
+   `ffmpeg -i assets/sounds/fire.mp3 -c:a libvorbis -q:a 5 AmazingCrit/Sounds/source_fire.ogg`
+2. Ligue a chave ao arquivo em `ns.defaults.sounds` (`AmazingCrit/Config.lua`), por exemplo `fire = "source_fire.ogg"`. Quem já tem configuração salva recebe a chave nova automaticamente.
 3. Feche e reabra o jogo (arquivo de som novo não é carregado com `/reload`).
-4. Confira com `/critrag test <chave>`.
+4. Confira com `/amazingcrit test <chave>`.
